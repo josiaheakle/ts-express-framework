@@ -1,12 +1,14 @@
 import * as Express from "express";
 import * as ExpressValidator from "express-validator";
 
-import { Form } from "./Form";
+import { Form, InputProperty } from "./Form";
 import { RuleError } from "./Model";
 
 interface FormControllerInput {
-    value  : string|number,
-    errors : Array<string>
+    name            : string, 
+    value           : string|number,
+    errors          : Array<string>,
+    inputProperty   : InputProperty
 }
 
 class FormController {
@@ -19,8 +21,10 @@ class FormController {
         this.form = form;
         form.inputs.forEach((input) => {
             this.inputs[input.name] = {
-                value  : '',
-                errors : []
+                name            : input.name,
+                value           : '',
+                errors          : [],
+                inputProperty   : input 
             }
         });
     }

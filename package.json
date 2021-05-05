@@ -2,13 +2,9 @@
   "name": "ts-express-framework",
   "version": "0.0.1",
   "description": "An express framework for handlebars and mysql with session management.",
-  "main": "src/index.ts",
-  "scripts": {
-    "start": "ts-node ./",
-    "dev": "nodemon"
-  },
+
   "keywords": [],
-  "author": "",
+  "author": "Josiah Eakle",
   "license": "ISC",
   "dependencies": {
     "bcrypt": "^5.0.1",
