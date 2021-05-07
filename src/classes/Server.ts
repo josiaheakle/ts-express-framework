@@ -1,28 +1,27 @@
 import * as Express from "express";
-import * as Morgan from "morgan";
 import * as Winston from "winston";
-import * as HTTPS from "https";
 
-const path = require( "path" );
+const path = require("path");
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const bodyParser = require('body-parser');
 const exphbs = require('express-handlebars');
+const morgan = require('morgan');
 
-export default class Server {
+export class Server {
 
-    public app                  : Express.Application;
-    private logger              : Winston.Logger;
+    public app: Express.Application;
+    private logger: Winston.Logger;
 
-    constructor( initRoutes : Function , handlebarsHelpers? : Array<{index: Function}> ) {
+    constructor(initRoutes: Function, handlebarsHelpers?: { [index: string]: Function }) {
 
         require('dotenv').config();
         this.app = Express();
         this.setConfig();
         this.setLogger();
-        this.setViewEngine( handlebarsHelpers );
+        this.setViewEngine(handlebarsHelpers);
         this.setStaticFiles();
-        this.setRoutes( initRoutes );
+        this.setRoutes(initRoutes);
 
     }
 
@@ -35,56 +34,67 @@ export default class Server {
         this.app.use('/assets', Express.static(path.join(__dirname, "../public")));
     }
 
-    private setViewEngine( handlebarsHelpers? : Array<{index: Function}> ) {
-        const hbs = exphbs.create({
-            helpers : handlebarsHelpers
-        });
+    private setViewEngine(handlebarsHelpers?: { [index: string]: Function }) {
+        let hbs;
+        if (handlebarsHelpers) {
+            hbs = exphbs.create({
+                helpers: handlebarsHelpers
+            });
+        } else {
+            hbs = exphbs.create();
+        }
         this.app.engine('handlebars', hbs.engine);
         this.app.set(`view engine`, `handlebars`);
         this.app.set(`views`, `./src/views`);
     }
 
-    private setRoutes( initRoutes : Function ) {
+    private setRoutes(initRoutes: Function) {
         initRoutes(this.app);
     }
 
     private setConfig() {
         this.app.use(bodyParser.json());
-        this.app.use(bodyParser.urlencoded({extended:false}));
-        this.app.use(cookieParser(process.env.SESSION_SECRET)); 
+        this.app.use(bodyParser.urlencoded({ extended: false }));
+        this.app.use(cookieParser(process.env.SESSION_SECRET));
         this.app.use(session({
-          secret: process.env.SESSION_SECRET,
-          cookie:{
-            maxAge:36000,
-            httpOnly:false,
-            secure:false
+            secret: process.env.SESSION_SECRET,
+            cookie: {
+                maxAge: 36000,
+                httpOnly: false,
+                secure: false
             },
-          resave: false,
-          saveUninitialized: true
-        })) 
+            resave: false,
+            saveUninitialized: true
+        }))
     }
 
     private setLogger() {
-		this.logger = Winston.createLogger({
+
+        const myFormat = Winston.format.printf(({ level, message, label, timestamp }) => {
+            return `[${timestamp}] ${message}`;
+        });
+
+        this.logger = Winston.createLogger({
             level: 'info',
-            format: Winston.format.json(),
+            format:  Winston.format.combine(
+                Winston.format.timestamp(),
+                myFormat
+            ),
             defaultMeta: { service: 'user-service' },
             transports: [
-              new Winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-              new Winston.transports.File({ filename: 'logs/combined.log' }),
-            ],          
-		});
+                new Winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+                new Winston.transports.File({ filename: 'logs/combined.log' }),
+            ],
+        });
 
-		// Set up HTTP request logging
-		const morganOptions: Morgan.Options = {
-			stream: {
-				write: (message) => {
-					this.logger.info(message);
-				},
-			},
-		};
-
-		this.app.use(Morgan('combined', morganOptions));
-	}
+        const morganOptions = {
+            stream: {
+                write: (message) => {
+                    this.logger.info(message);
+                },
+            },
+        };
+        this.app.use(morgan('combined', morganOptions));
+    }
 
 }

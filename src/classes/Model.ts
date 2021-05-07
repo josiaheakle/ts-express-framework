@@ -4,8 +4,6 @@ import * as Express from "express";
 
 import { Database } from "./Database";
 
-const bcrypt = require('bcrypt');
-
 interface ModelProprety {
     value?      : any,
     columnName? : string,
@@ -33,14 +31,21 @@ abstract class Model {
 
         const propNames = this._getPropertyNames();
 
+        console.log(propNames);
+
         propNames.forEach(prop => {
             if(request.body[prop]) {
-                this[`property_${prop}`] = request.body[prop];
+                console.log({
+                    name: prop,
+                    req: request.body[prop],
+                    prop :this._getPropertyByName(prop)    
+                })
+                this._getPropertyByName(prop).value = request.body[prop];
             }
         });
     }
 
-    public async checkRules () {
+    public async checkRules () : Promise<Array<RuleError>|true> {
         const errors : Array<RuleError> = [];
 
         for (const prop of this._getPropertyNames()) {
@@ -62,15 +67,15 @@ abstract class Model {
                         });
 
                     }
-
                 }
             }
         }
 
-        return errors;
+        if (errors.length > 0) return errors;
+        else return true;
     }
 
-    public async save() : Promise<string|number> {
+    public async save() : Promise<false|number> {
         let columns : Array<string> = [];
         let values  : Array<any>    = [];
         
@@ -87,17 +92,17 @@ abstract class Model {
             Database.conn.query(SQL, values, (error : Mysql.MysqlError, results : {[index:string]:any}) => {
                 console.log(`RESULT`);
                 console.log(results);
-                if(error) rej (error);
-                res(results.insertId);
+                if(error || !results.insertId) res(false);
+                else res(results.insertId);
             });
         });
     }
 
-    public async getById ( id : string|number ) {
+    public async getById ( id : string|number ) : Promise<false|{[index:string]: any}> {
         let SQL = `SELECT * FROM ${this.tableName} WHERE id=? `;
         return new Promise((res, rej) => {
             Database.conn.query(SQL, id, (error : Mysql.MysqlError, results : {[index:string]:any}) => {
-                if(error) res (false);
+                if(error || !results[0]) res (false);
                 else res(results[0]);
             });
         });
@@ -112,19 +117,6 @@ abstract class Model {
             Database.conn.query(SQL, property.value, (error : Mysql.MysqlError, results : {[index:string]:any}) => {
                 if(error || results.length > 0) res(false);
                 else res(true);
-            });
-        });
-    }
-
-    private async _passwordRule ( propertyName : string ) : Promise<boolean> {
-        const property = this._getPropertyByName(propertyName);
-        return new Promise((res, rej) => {
-            bcrypt.hash(property.value, 10, (err, hash) => {
-                if (err) res (false);
-                else {
-                    property.value = hash;
-                    res(true);
-                }
             });
         });
     }
