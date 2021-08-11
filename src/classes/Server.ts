@@ -7,7 +7,7 @@ const bodyParser = require('body-parser');
 const morgan = require('morgan');
 
 interface ServerOptions {
-    initRoutes: Function;
+    initRoutes: (app : Express.Application, apiUri? : string) => void;
     apiPath?: string;
     staticFilePath?: string;
 }
