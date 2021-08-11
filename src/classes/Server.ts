@@ -1,27 +1,33 @@
 import * as Express from "express";
 import * as Winston from "winston";
 
-const path = require("path");
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const bodyParser = require('body-parser');
-const exphbs = require('express-handlebars');
 const morgan = require('morgan');
+
+interface ServerOptions {
+    initRoutes: Function;
+    apiPath?: string;
+    staticFilePath?: string;
+}
 
 export class Server {
 
     public app: Express.Application;
     private logger: Winston.Logger;
 
-    constructor(initRoutes: Function, handlebarsHelpers?: { [index: string]: Function }) {
+    constructor(config: ServerOptions) {
 
         require('dotenv').config();
+
         this.app = Express();
         this.setConfig();
         this.setLogger();
-        this.setViewEngine(handlebarsHelpers);
-        this.setStaticFiles();
-        this.setRoutes(initRoutes);
+        if (config.staticFilePath) {
+            this.setStaticFiles(config.staticFilePath);
+        }
+        this.setRoutes(config.initRoutes);
 
     }
 
@@ -30,22 +36,8 @@ export class Server {
         this.logger.info(`Server started at ${process.env.PORT}`);
     }
 
-    private setStaticFiles() {
-        this.app.use('/assets', Express.static(path.join(__dirname, "../public")));
-    }
-
-    private setViewEngine(handlebarsHelpers?: { [index: string]: Function }) {
-        let hbs;
-        if (handlebarsHelpers) {
-            hbs = exphbs.create({
-                helpers: handlebarsHelpers
-            });
-        } else {
-            hbs = exphbs.create();
-        }
-        this.app.engine('handlebars', hbs.engine);
-        this.app.set(`view engine`, `handlebars`);
-        this.app.set(`views`, `./src/views`);
+    private setStaticFiles(dirPath : string) {
+        this.app.use('/assets', Express.static(dirPath));
     }
 
     private setRoutes(initRoutes: Function) {
@@ -56,16 +48,18 @@ export class Server {
         this.app.use(bodyParser.json());
         this.app.use(bodyParser.urlencoded({ extended: false }));
         this.app.use(cookieParser(process.env.SESSION_SECRET));
-        this.app.use(session({
-            secret: process.env.SESSION_SECRET,
-            cookie: {
-                maxAge: 36000,
-                httpOnly: false,
-                secure: false
-            },
-            resave: false,
-            saveUninitialized: true
-        }))
+        if (process.env.SESSION_SECRET) {
+            this.app.use(session({
+                secret: process.env.SESSION_SECRET,
+                cookie: {
+                    maxAge: 36000,
+                    httpOnly: false,
+                    secure: false
+                },
+                resave: false,
+                saveUninitialized: true
+            }))
+        }
     }
 
     private setLogger() {
